@@ -26,7 +26,16 @@ with open('Models/Saved_Model_Batch/pi_lo.npy', 'rb') as f:
 
 with open('Models/Saved_Model_Batch/pi_b.npy', 'rb') as f:
     pi_b_batch = np.load(f)   
+
+with open('Models/Saved_Model_Batch/pi_hi_evolution.npy', 'rb') as f:
+    pi_hi_evolution = np.load(f)
     
+with open('Models/Saved_Model_Batch/pi_lo_evolution.npy', 'rb') as f:
+    pi_lo_evolution = np.load(f)
+
+with open('Models/Saved_Model_Batch/pi_b_evolution.npy', 'rb') as f:
+    pi_b_evolution = np.load(f)   
+        
 
 # %% Expert
 expert = World.TwoRooms.Expert()
@@ -53,5 +62,11 @@ BatchSim.HILVideoSimulation(controlBatch[best][:], trajBatch[best][:],
 AverageRewardExpert = np.sum(rewardExpert)/nTraj
 AverageRewardBatch = np.sum(rewardBatch)/nTraj
 
-
-   
+# %% L2 norm 
+L2_norm_error = np.empty((0)) 
+for i in range(len(pi_hi_evolution)):
+    error_hi = np.sqrt(np.sum((pi_hi_evolution[i] - pi_hi_expert)**2))
+    error_lo = np.sqrt(np.sum((pi_lo_evolution[i] - pi_lo_expert)**2))
+    error_b = np.sqrt(np.sum((pi_b_evolution[i] - pi_b_expert)**2))
+    error = error_hi + error_lo + error_b
+    L2_norm_error = np.append(L2_norm_error, error)

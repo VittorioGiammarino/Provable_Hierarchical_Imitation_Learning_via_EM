@@ -15,10 +15,11 @@ pi_hi_expert, pi_lo_expert, pi_b_expert = expert.HierarchicalPolicy()
 ExpertPlot = expert.Plot(pi_hi_expert, pi_lo_expert, pi_b_expert)
 ExpertPlot.PlotHierachicalPolicy('Figures/FiguresExpert/Hierarchical/PIHI_{}', 'Figures/FiguresExpert/Hierarchical/PILO_option{}_{}', 'Figures/FiguresExpert/Hierarchical/PIB_option{}_{}')
 ExpertSim = expert.Simulation(pi_hi_expert, pi_lo_expert, pi_b_expert)
-max_epoch = 100 #max iterations in the simulation per trajectory
+max_epoch = 200 #max iterations in the simulation per trajectory
 nTraj = 10 #number of trajectories generated
+seed = 10 # random seed
 [trajExpert, controlExpert, OptionsExpert, 
- TerminationExpert, psiExpert, rewardExpert] = ExpertSim.HierarchicalStochasticSampleTrajMDP(max_epoch,nTraj,1)
+ TerminationExpert, psiExpert, rewardExpert] = ExpertSim.HierarchicalStochasticSampleTrajMDP(max_epoch, nTraj, seed)
 best = np.argmax(rewardExpert)   
 ExpertSim.HILVideoSimulation(controlExpert[best][:], trajExpert[best][:], 
                              OptionsExpert[best][:], "Videos/VideosExpert/sim_HierarchExpert.mp4")
@@ -28,12 +29,10 @@ ss = expert.Environment.stateSpace
 Labels, TrainingSet = BatchBW_HIL.ProcessData(trajExpert, controlExpert, psiExpert, ss)
 option_space = 2
 Agent_BatchHIL = BatchBW_HIL.BatchHIL(TrainingSet, Labels, option_space)
-N=10 #number of iterations for the BW algorithm
-pi_hi_batch, pi_lo_batch, pi_b_batch = Agent_BatchHIL.Baum_Welch(N)
-
+N=50 #number of iterations for the BW algorithm
+pi_hi_batch, pi_lo_batch, pi_b_batch, pi_hi_evolution, pi_lo_evolution, pi_b_evolution = Agent_BatchHIL.Baum_Welch(N, pi_hi_expert, pi_lo_expert, pi_b_expert)
 
 # %% Save Model
-
 with open('Models/Saved_Model_Expert/pi_hi.npy', 'wb') as f:
     np.save(f, pi_hi_expert)
     
@@ -52,4 +51,11 @@ with open('Models/Saved_Model_Batch/pi_lo.npy', 'wb') as f:
 with open('Models/Saved_Model_Batch/pi_b.npy', 'wb') as f:
     np.save(f, pi_b_batch)    
     
+with open('Models/Saved_Model_Batch/pi_hi_evolution.npy', 'wb') as f:
+    np.save(f, pi_hi_evolution)
     
+with open('Models/Saved_Model_Batch/pi_lo_evolution.npy', 'wb') as f:
+    np.save(f, pi_lo_evolution)
+
+with open('Models/Saved_Model_Batch/pi_b_evolution.npy', 'wb') as f:
+    np.save(f, pi_b_evolution)        

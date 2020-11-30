@@ -693,7 +693,7 @@ class TwoRooms:
                 option_space = pi_hi.shape[1]
                 self.option_space = option_space
                 self.mu = np.ones(option_space)*np.divide(1,option_space)
-                self.zeta = 0.0001
+                self.zeta = 0.1
                 self.Environment = TwoRooms.Environment()
                 self.initial_state = self.Environment.BaseStateIndex()
                 self.P = self.Environment.ComputeTransitionProbabilityMatrix()

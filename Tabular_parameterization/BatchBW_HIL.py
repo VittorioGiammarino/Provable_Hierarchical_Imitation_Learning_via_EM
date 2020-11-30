@@ -67,7 +67,7 @@ class BatchHIL:
         self.size_input = TrainingSet.shape[1]
         self.action_space = int(np.max(Labels)+1)
         self.termination_space = 2
-        self.zeta = 0.0001
+        self.zeta = 0.1
         self.mu = np.ones(option_space)*np.divide(1,option_space)
         self.environment = World.TwoRooms.Environment()
         self.expert = World.TwoRooms.Expert()
@@ -128,6 +128,38 @@ class BatchHIL:
                 pi_b[i,:,o] = prob_temp
                 
         return pi_b
+    
+    def initialize_pi_hi_FromExpert(self, pi_hi_expert):
+        stateSpace = self.expert.StateSpace()
+        pi_hi = np.empty((0,self.option_space))
+        for i in range(len(stateSpace)):
+            prob_temp = pi_hi_expert[i,:] + np.random.uniform(0,0.1,self.option_space)
+            prob_temp = np.divide(prob_temp, np.sum(prob_temp)).reshape(1,len(prob_temp))
+            pi_hi = np.append(pi_hi, prob_temp, axis=0)
+            
+        return pi_hi
+    
+    def initialize_pi_lo_FromExpert(self, pi_lo_expert):
+        stateSpace = self.expert.StateSpace()
+        pi_lo = np.zeros((len(stateSpace),self.action_space, self.option_space))
+        for i in range(len(stateSpace)):
+            for o in range(self.option_space):
+                prob_temp = pi_lo_expert[i,:,o] + np.random.uniform(0,0.1,self.action_space)
+                prob_temp = np.divide(prob_temp, np.sum(prob_temp))
+                pi_lo[i,:,o] = prob_temp
+                
+        return pi_lo
+    
+    def initialize_pi_b_FromExpert(self, pi_b_expert):
+        stateSpace = self.expert.StateSpace()
+        pi_b = np.zeros((len(stateSpace),self.termination_space, self.option_space))
+        for i in range(len(stateSpace)):
+            for o in range(self.option_space):
+                prob_temp = pi_b_expert[i,:,o] + np.random.uniform(0,0.1,self.termination_space)
+                prob_temp = np.divide(prob_temp, np.sum(prob_temp))
+                pi_b[i,:,o] = prob_temp
+                
+        return pi_b    
     
     def Pi_hi(ot, Pi_hi_parameterization, state):
         Pi_hi = Pi_hi_parameterization(state)
@@ -400,11 +432,17 @@ class BatchHIL:
         
         return New_pi_b
     
-    def Baum_Welch(self, N):
+    def Baum_Welch(self, N, pi_hi_expert, pi_lo_expert, pi_b_expert):
         TrainingSetID = BatchHIL.TrainingSetID(self)
-        pi_hi = BatchHIL.initialize_pi_hi(self)
-        pi_b = BatchHIL.initialize_pi_b(self)
-        pi_lo = BatchHIL.initialize_pi_lo(self)
+        pi_hi = BatchHIL.initialize_pi_hi_FromExpert(self, pi_hi_expert)
+        pi_b = BatchHIL.initialize_pi_b_FromExpert(self, pi_b_expert)
+        pi_lo = BatchHIL.initialize_pi_lo_FromExpert(self, pi_lo_expert)
+        pi_hi_evolution = [[None]*1 for _ in range(N+1)]
+        pi_lo_evolution = [[None]*1 for _ in range(N+1)]
+        pi_b_evolution = [[None]*1 for _ in range(N+1)]
+        pi_hi_evolution[0] = pi_hi
+        pi_lo_evolution[0] = pi_lo
+        pi_b_evolution[0] = pi_b
         
         for i in range(N):
             pi_hi_agent = PI_HI(pi_hi) 
@@ -421,8 +459,11 @@ class BatchHIL:
             pi_hi = BatchHIL.UpdatePiHi(self, pi_hi_agent.pi_hi, gamma, TrainingSetID)
             pi_lo = BatchHIL.UpdatePiLo(self, pi_lo_agent.pi_lo, gamma, TrainingSetID)
             pi_b = BatchHIL.UpdatePiB(self, pi_b_agent.pi_b, gamma_tilde, TrainingSetID)
+            pi_hi_evolution[i+1] = pi_hi
+            pi_lo_evolution[i+1] = pi_lo
+            pi_b_evolution[i+1] = pi_b
         
-        return pi_hi, pi_lo, pi_b
+        return pi_hi, pi_lo, pi_b, pi_hi_evolution, pi_lo_evolution, pi_b_evolution
         
     
 
