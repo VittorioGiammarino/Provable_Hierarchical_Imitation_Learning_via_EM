@@ -8,6 +8,7 @@ Created on Thu Oct 29 19:17:59 2020
 import World
 import numpy as np
 import BatchBW_HIL 
+import matplotlib.pyplot as plt
 
 with open('Models/Saved_Model_Expert/pi_hi.npy', 'rb') as f:
     pi_hi_expert = np.load(f)
@@ -70,3 +71,9 @@ for i in range(len(pi_hi_evolution)):
     error_b = np.sqrt(np.sum((pi_b_evolution[i] - pi_b_expert)**2))
     error = error_hi + error_lo + error_b
     L2_norm_error = np.append(L2_norm_error, error)
+
+# %%
+iterations = np.linspace(0,len(L2_norm_error),len(L2_norm_error))    
+plt.figure()
+plt.plot(iterations, L2_norm_error, 'r')
+

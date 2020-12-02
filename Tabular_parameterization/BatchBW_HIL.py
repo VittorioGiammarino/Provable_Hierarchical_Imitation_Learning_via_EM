@@ -432,11 +432,88 @@ class BatchHIL:
         
         return New_pi_b
     
-    def Baum_Welch(self, N, pi_hi_expert, pi_lo_expert, pi_b_expert):
+    def UpdatePiHi_simplified(self, gamma, TrainingSetID):
+        stateSpace = self.expert.StateSpace()
+        Room1_stateID = np.empty((0),dtype=int)
+        Room2_stateID = np.empty((0),dtype=int)
+        for i in range(len(stateSpace)):
+            if stateSpace[i,1]<3:
+                Room1_stateID = np.append(Room1_stateID,i)
+            elif stateSpace[i,1]>=3:
+                Room2_stateID = np.append(Room2_stateID,i)
+                
+        indexesRoom1_inDataSet = np.empty((0),dtype=int)         
+        for i in range(len(Room1_stateID)):
+            indexesRoom1_inDataSet_temp = np.where(TrainingSetID == Room1_stateID[i])[0]
+            indexesRoom1_inDataSet = np.append(indexesRoom1_inDataSet, indexesRoom1_inDataSet_temp)
+        indexesRoom2_inDataSet = np.empty((0),dtype=int)           
+        for i in range(len(Room2_stateID)):
+            indexesRoom2_inDataSet_temp = np.where(TrainingSetID == Room2_stateID[i])[0]
+            indexesRoom2_inDataSet = np.append(indexesRoom2_inDataSet, indexesRoom2_inDataSet_temp)                
+            
+        theta_hi = np.divide(np.sum(gamma[0,1,indexesRoom1_inDataSet])+np.sum(gamma[1,1,indexesRoom2_inDataSet]),np.sum(gamma[:,1,:]))
+        
+        return theta_hi
+    
+    def UpdatePiLo_simplified(self, gamma, TrainingSetID, pi_lo_expert):
+        U_opt = np.argmax(pi_lo_expert,1)
+        num = 0
+        den = 0
+        for t in range(len(TrainingSetID)):
+            stateID = TrainingSetID[t,0]
+            label = self.Labels[t,0]
+            num_temp_op0 = 0
+            num_temp_op1 = 0
+            if label == U_opt[int(stateID),0]:
+                num_temp_op0 = gamma[0,0,t] + gamma[0,1,t]
+            if label == U_opt[int(stateID),1]:
+                num_temp_op1 = gamma[1,0,t] + gamma[1,1,t]
+            num = num + (num_temp_op0 + num_temp_op1)
+            
+            den_temp_op0 = 0
+            den_temp_op1 = 0
+            if label == U_opt[int(stateID),0]:
+                den_temp_op0 = (gamma[0,0,t] + gamma[0,1,t])
+            else:
+                den_temp_op0 = (gamma[0,0,t] + gamma[0,1,t])
+            if label == U_opt[int(stateID),1]:
+                den_temp_op1 = (gamma[1,0,t] + gamma[1,1,t])
+            else:
+                den_temp_op1 = (gamma[1,0,t] + gamma[1,1,t])
+            den = den + (den_temp_op0 + den_temp_op1)
+            
+        theta_lo = num/den
+        return theta_lo
+    
+    def UpdatePiB_simplified(self, gamma_tilde, TrainingSetID):
+        T = len(TrainingSetID)
+        stateSpace = self.expert.StateSpace()
+        Room1_stateID = np.empty((0),dtype=int)
+        Room2_stateID = np.empty((0),dtype=int)
+        for i in range(len(stateSpace)):
+            if stateSpace[i,1]<3:
+                Room1_stateID = np.append(Room1_stateID,i)
+            elif stateSpace[i,1]>=3:
+                Room2_stateID = np.append(Room2_stateID,i)
+                
+        indexesRoom1_inDataSet = np.empty((0),dtype=int)         
+        for i in range(len(Room1_stateID)):
+            indexesRoom1_inDataSet_temp = np.where(TrainingSetID == Room1_stateID[i])[0]
+            indexesRoom1_inDataSet = np.append(indexesRoom1_inDataSet, indexesRoom1_inDataSet_temp)
+        indexesRoom2_inDataSet = np.empty((0),dtype=int)         
+        for i in range(len(Room2_stateID)):
+            indexesRoom2_inDataSet_temp = np.where(TrainingSetID == Room2_stateID[i])[0]
+            indexesRoom2_inDataSet = np.append(indexesRoom2_inDataSet, indexesRoom2_inDataSet_temp) 
+            
+        theta_b = np.divide(np.sum(gamma_tilde[0,0,indexesRoom1_inDataSet])+np.sum(gamma_tilde[1,1,indexesRoom1_inDataSet])
+                            +np.sum(gamma_tilde[0,1,indexesRoom2_inDataSet])+np.sum(gamma_tilde[1,0,indexesRoom2_inDataSet]),T-1)
+        
+        return theta_b
+        
+    
+    def Baum_Welch(self, N, pi_hi_expert, pi_lo_expert, pi_b_expert, theta_hi_init, theta_lo_init, theta_b_init):
         TrainingSetID = BatchHIL.TrainingSetID(self)
-        pi_hi = BatchHIL.initialize_pi_hi_FromExpert(self, pi_hi_expert)
-        pi_b = BatchHIL.initialize_pi_b_FromExpert(self, pi_b_expert)
-        pi_lo = BatchHIL.initialize_pi_lo_FromExpert(self, pi_lo_expert)
+        pi_hi, pi_lo, pi_b = self.expert.HierarchicalPolicy(theta_hi_init, theta_lo_init, theta_b_init)
         pi_hi_evolution = [[None]*1 for _ in range(N+1)]
         pi_lo_evolution = [[None]*1 for _ in range(N+1)]
         pi_b_evolution = [[None]*1 for _ in range(N+1)]
@@ -456,9 +533,10 @@ class BatchHIL:
             gamma_tilde = BatchHIL.GammaTilde(self, alpha, beta, pi_hi_agent.Policy , pi_b_agent.Policy , pi_lo_agent.Policy)
             
             # M-step
-            pi_hi = BatchHIL.UpdatePiHi(self, pi_hi_agent.pi_hi, gamma, TrainingSetID)
-            pi_lo = BatchHIL.UpdatePiLo(self, pi_lo_agent.pi_lo, gamma, TrainingSetID)
-            pi_b = BatchHIL.UpdatePiB(self, pi_b_agent.pi_b, gamma_tilde, TrainingSetID)
+            theta_hi = BatchHIL.UpdatePiHi_simplified(self,  gamma, TrainingSetID)
+            theta_lo = BatchHIL.UpdatePiLo_simplified(self,  gamma, TrainingSetID, pi_lo_expert)
+            theta_b = BatchHIL.UpdatePiB_simplified(self, gamma_tilde, TrainingSetID)
+            pi_hi, pi_lo, pi_b = self.expert.HierarchicalPolicy(theta_hi,theta_lo,theta_b)
             pi_hi_evolution[i+1] = pi_hi
             pi_lo_evolution[i+1] = pi_lo
             pi_b_evolution[i+1] = pi_b

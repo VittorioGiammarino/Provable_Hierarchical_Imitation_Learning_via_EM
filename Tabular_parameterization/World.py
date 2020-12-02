@@ -510,7 +510,7 @@ class TwoRooms:
     
             return stateIndex
         
-        def generate_pi_hi(self):
+        def generate_pi_hi(self, theta_hi_star):
             stateSpace = TwoRooms.Expert.StateSpace(self)
             pi_hi = np.empty((0,1),int)
             for i in range(len(stateSpace)):
@@ -520,52 +520,59 @@ class TwoRooms:
                     pi_hi = np.append(pi_hi, [[1]], 0)
                  
             pi_hi_encoded = np.zeros((len(pi_hi), pi_hi.max()+1))
-            pi_hi_encoded[np.arange(len(pi_hi)),pi_hi[:,0]] = 1
+            pi_hi_encoded[np.arange(len(pi_hi)), pi_hi[:,0]] = theta_hi_star
+            pi_hi_encoded[np.arange(len(pi_hi)), np.abs(pi_hi[:,0]-np.ones((len(pi_hi)),dtype=int))] = 1-theta_hi_star
             
             return pi_hi_encoded
         
-        def generate_pi_lo(self, Uopt, pi_hi, n_op):
+        def generate_pi_lo(self, Uopt, pi_hi, n_op, theta_lo_star):
             stateSpace = TwoRooms.Expert.StateSpace(self)
-            pi_lo = np.empty((0,1),int)
+            action_space = int(Uopt[:,0].max()+1)
+            pi_lo = np.zeros((len(stateSpace), action_space,1))
 
             for i in range(len(stateSpace)):
-                if pi_hi[i,n_op]==1:
-                    pi_lo = np.append(pi_lo, [[int(Uopt[i,0])]], 0)
-                else:
-                    pi_lo = np.append(pi_lo, [[self.Environment.HOVER]], 0)
-                        
-            pi_lo_encoded = np.zeros((len(pi_lo), pi_lo.max()+1,1))
-            pi_lo_encoded[np.arange(len(pi_lo)),pi_lo[:,0],0] = 1
-            
-            return pi_lo_encoded
+                for j in range(action_space):
+                    if pi_hi[i,n_op]>0.5:
+                        if j == int(Uopt[i,0]):
+                            pi_lo[i,j,0] = theta_lo_star
+                        else:
+                            pi_lo[i,j,0] = 0.25*(1-theta_lo_star)
+                    else:
+                        if j == int(self.Environment.HOVER):
+                            pi_lo[i,j,0] = theta_lo_star
+                        else:
+                            pi_lo[i,j,0] = 0.25*(1-theta_lo_star)
+                                                
+            return pi_lo
         
-        def generate_pi_b(self, pi_hi, n_op):
+        def generate_pi_b(self, pi_hi, n_op, theta_b_star):
             stateSpace = TwoRooms.Expert.StateSpace(self)
             pi_b = np.empty((0,1),int)
             for i in range(len(stateSpace)):
-                if pi_hi[i,n_op]==1:
+                if pi_hi[i,n_op]>0.5:
                     pi_b = np.append(pi_b, [[0]], 0)
                 else:
                     pi_b = np.append(pi_b, [[1]], 0)
 
             pi_b_encoded = np.zeros((len(pi_b), pi_b.max()+1, 1))
-            pi_b_encoded[np.arange(len(pi_b)),pi_b[:,0],0] = 1
+            pi_b_encoded[np.arange(len(pi_b)),pi_b[:,0],0] = theta_b_star
+            pi_b_encoded[np.arange(len(pi_b)),np.abs(pi_b[:,0]-np.ones((len(pi_b)),dtype=int)),0] = 1-theta_b_star
             
             return pi_b_encoded
         
-        def HierarchicalPolicy(self):
+        def HierarchicalPolicy(self, theta_hi_star, theta_lo_star, theta_b_star):
 # =============================================================================
 # This function generates a hierarchical policy for expert starting from 
 # the solution obtained using value-iteration. The policy is arbitrarily obtained using 
 # functions already defined.
 # =============================================================================
             U = TwoRooms.Expert.ComputeFlatPolicy(self)
-            pi_hi = TwoRooms.Expert.generate_pi_hi(self)
-            pi_lo1 = TwoRooms.Expert.generate_pi_lo(self, U, pi_hi, 0)
-            pi_lo2 = TwoRooms.Expert.generate_pi_lo(self, U, pi_hi, 1)
+            pi_hi = TwoRooms.Expert.generate_pi_hi(self, theta_hi_star)
+            pi_lo1 = TwoRooms.Expert.generate_pi_lo(self, U, pi_hi, 0, theta_lo_star)
+            pi_lo2 = TwoRooms.Expert.generate_pi_lo(self, U, pi_hi, 1, theta_lo_star)
             pi_lo = np.concatenate((pi_lo1, pi_lo2), 2)
-            pi_b1 = TwoRooms.Expert.generate_pi_b(self, pi_hi, 0)
-            pi_b2 = TwoRooms.Expert.generate_pi_b(self, pi_hi, 1)
+            pi_b1 = TwoRooms.Expert.generate_pi_b(self, pi_hi, 0, theta_b_star)
+            pi_b2 = TwoRooms.Expert.generate_pi_b(self, pi_hi, 1, theta_b_star)
             pi_b = np.concatenate((pi_b1, pi_b2), 2)
                         
             return pi_hi, pi_lo, pi_b
