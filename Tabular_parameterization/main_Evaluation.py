@@ -75,5 +75,6 @@ for i in range(len(pi_hi_evolution)):
 # %%
 iterations = np.linspace(0,len(L2_norm_error),len(L2_norm_error))    
 plt.figure()
-plt.plot(iterations, L2_norm_error, 'r')
+plt.plot(iterations, L2_norm_error, '-ok')
+plt.savefig('Figures/L2_norm_error.eps', format='eps')
 
