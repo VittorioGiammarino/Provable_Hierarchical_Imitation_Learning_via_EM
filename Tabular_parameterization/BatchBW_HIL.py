@@ -259,7 +259,7 @@ class BatchHIL:
                 for i1_next in range(option_space):
                     ot_next = i1_next
                     for i2_next in range(termination_space):
-                        if i2 == 1:
+                        if i2_next == 1:
                             b_next=True
                         else:
                             b_next=False
@@ -289,15 +289,15 @@ class BatchHIL:
         return alpha
 
     def Beta(self, pi_hi, pi_b, pi_lo):
-        beta = np.empty((self.option_space,self.termination_space,len(self.TrainingSet)))
-        beta[:,:,len(self.TrainingSet)-1] = np.divide(np.ones((self.option_space,self.termination_space)),2*self.option_space)
+        beta = np.empty((self.option_space,self.termination_space, len(self.TrainingSet)+1))
+        beta[:,:,len(self.TrainingSet)] = np.divide(np.ones((self.option_space,self.termination_space)),2*self.option_space)
     
-        for t_raw in range(len(self.TrainingSet)-1):
+        for t_raw in range(len(self.TrainingSet)):
             t = len(self.TrainingSet) - (t_raw+1)
             print('beta iter', t_raw+1, '/', len(self.TrainingSet)-1)
             state = self.TrainingSet[t,:].reshape(1,len(self.TrainingSet[t,:]))
             action = self.Labels[t]
-            beta[:,:,t-1] = BatchHIL.BackwardRecursion(beta[:,:,t], action, pi_hi, 
+            beta[:,:,t-1] = BatchHIL.BackwardRecursion(beta[:,:,t+1], action, pi_hi, 
                                                        pi_lo, pi_b, state, self.zeta, 
                                                        self.option_space, self.termination_space)
         
@@ -308,8 +308,9 @@ class BatchHIL:
         for i1 in range(option_space):
             ot=i1
             for i2 in range(termination_space):
-                gamma[ot,i2] = alpha[ot,i2]*beta[ot,i2]     
-            gamma = np.divide(gamma,np.sum(gamma))
+                gamma[ot,i2] = alpha[ot,i2]*beta[ot,i2]   
+                
+        gamma = np.divide(gamma,np.sum(gamma))
     
         return gamma
 
